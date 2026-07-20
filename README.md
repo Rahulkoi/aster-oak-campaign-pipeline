@@ -25,6 +25,7 @@ uvicorn app.main:app --reload
 curl -X POST http://localhost:8000/campaigns/ingest
 curl "http://localhost:8000/campaigns?channel=meta&min_score=60"
 curl http://localhost:8000/campaigns/cmp_004
+curl http://localhost:8000/campaigns/evaluation   # self-check on health_score
 ```
 
 Interactive docs: http://localhost:8000/docs · Tests: `pytest`
@@ -97,6 +98,23 @@ OpenAI-compatible endpoint (OpenAI, Groq, Gemini) — same schema, same retry
 loop, same validation either way.
 
 **With more time**: feed validation errors back to the model on retry; batch or
-parallelize the per-row calls; a `/campaigns/insights` portfolio endpoint; a
-deterministic self-check (e.g. flag when the model's health score is high but ROAS
-< 1); Alembic migrations; structured logging.
+parallelize the per-row calls; a `/campaigns/insights` portfolio endpoint;
+Alembic migrations; structured logging.
+
+## Self-check / eval (`GET /campaigns/evaluation`)
+
+Because no one reviews every model output in production, one enriched field is
+guarded against a deterministic rule and disagreements are flagged — this
+surfaces where model judgment and the hard numbers diverge; it does not correct
+the model.
+
+- **Field checked:** `health_score`. **Ground truth:** ROAS (`revenue / spend`).
+- **Scope:** only revenue-driven objectives (`conversion`, `retention`).
+  Awareness/consideration campaigns are deliberately *not* judged on ROAS —
+  consistent with how the enrichment prompt is told to score them.
+- **Rules:** flag if ROAS < 1 but `health_score` ≥ 70 (model too generous), or
+  ROAS ≥ 4 but `health_score` ≤ 40 (model too harsh).
+
+The endpoint aggregates from Postgres and returns the count evaluated, skipped,
+and the list of disagreements with each campaign's ROAS and score. Logic lives
+in `app/evaluation.py` and is unit-tested in `tests/test_evaluation.py`.

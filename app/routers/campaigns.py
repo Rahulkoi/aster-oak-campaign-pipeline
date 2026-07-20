@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.cleaning import clean_batch
 from app.database import get_db
+from app.evaluation import CampaignMetrics, EvaluationReport, evaluate
 from app.llm import EnrichmentFailure, enrich_campaign
 from app.models import Campaign
 from app.schemas import CampaignOut, CleanedCampaign, IngestRowResult, IngestSummary
@@ -78,6 +79,23 @@ def list_campaigns(
     if min_score is not None:
         query = query.where(Campaign.health_score >= min_score)
     return list(db.scalars(query))
+
+
+@router.get("/evaluation", response_model=EvaluationReport)
+def evaluation(db: Session = Depends(get_db)) -> EvaluationReport:
+    """Self-check: flag campaigns whose health_score contradicts their ROAS.
+
+    Registered before /{campaign_id} so 'evaluation' is not read as an id.
+    """
+    campaigns = db.scalars(select(Campaign)).all()
+    metrics = [
+        CampaignMetrics(
+            id=c.id, objective=c.objective, health_score=c.health_score,
+            spend=c.spend, revenue=c.revenue,
+        )
+        for c in campaigns
+    ]
+    return evaluate(metrics)
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)
