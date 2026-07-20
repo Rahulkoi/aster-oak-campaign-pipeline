@@ -11,7 +11,7 @@ from app.database import get_db
 from app.evaluation import CampaignMetrics, EvaluationReport, evaluate
 from app.llm import EnrichmentFailure, enrich_campaign
 from app.models import Campaign
-from app.schemas import CampaignOut, CleanedCampaign, IngestRowResult, IngestSummary
+from app.schemas import CampaignOut, ChannelFilter, CleanedCampaign, IngestRowResult, IngestSummary
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -69,13 +69,13 @@ def ingest(db: Session = Depends(get_db)) -> IngestSummary:
 
 @router.get("", response_model=list[CampaignOut])
 def list_campaigns(
-    channel: str | None = Query(None, description="Canonical channel, e.g. meta, google, email"),
+    channel: ChannelFilter | None = Query(None, description="Filter by canonical channel"),
     min_score: int | None = Query(None, ge=0, le=100, description="Minimum health score"),
     db: Session = Depends(get_db),
 ) -> list[Campaign]:
     query = select(Campaign).order_by(Campaign.health_score.desc().nulls_last())
     if channel is not None:
-        query = query.where(Campaign.channel == channel)
+        query = query.where(Campaign.channel == channel.value)
     if min_score is not None:
         query = query.where(Campaign.health_score >= min_score)
     return list(db.scalars(query))

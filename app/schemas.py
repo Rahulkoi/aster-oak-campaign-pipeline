@@ -1,6 +1,19 @@
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel
+
+
+class ChannelFilter(str, Enum):
+    """Canonical channels, exposed as a dropdown for the GET /campaigns filter."""
+
+    meta = "meta"
+    google = "google"
+    youtube = "youtube"
+    email = "email"
+    sms = "sms"
+    influencer = "influencer"
+    other = "other"
 
 
 class CleanedCampaign(BaseModel):
