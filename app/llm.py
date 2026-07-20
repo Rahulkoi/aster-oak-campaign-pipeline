@@ -7,6 +7,7 @@ the caller decides what to do with it (we store it un-enriched).
 """
 
 import json
+import time
 from typing import Literal
 
 import anthropic
@@ -75,6 +76,19 @@ def _build_user_message(campaign: CleanedCampaign) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
+_last_call_at = 0.0
+
+
+def _throttle() -> None:
+    global _last_call_at
+    interval = settings.llm_min_interval_seconds
+    if interval > 0:
+        wait = _last_call_at + interval - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+    _last_call_at = time.monotonic()
+
+
 def _call_anthropic(campaign: CleanedCampaign, client: anthropic.Anthropic) -> dict:
     response = client.messages.create(
         model=settings.anthropic_model,
@@ -127,12 +141,16 @@ def enrich_campaign(
     last_error = "unknown"
     for _ in range(MAX_ATTEMPTS):
         try:
+            _throttle()
             raw = _call_anthropic(campaign, client) if use_anthropic else _call_openai_compatible(campaign)
         except EnrichmentFailure as exc:
             last_error = exc.reason
             continue
         except Exception as exc:  # provider SDK errors (rate limit, auth, network)
             last_error = f"API error: {exc}"
+            # A 429 retried immediately will just 429 again; wait out the window.
+            is_rate_limit = "429" in str(exc) or "rate limit" in str(exc).lower()
+            time.sleep(30 if is_rate_limit else 2)
             continue
         try:
             return Enrichment.model_validate(raw)

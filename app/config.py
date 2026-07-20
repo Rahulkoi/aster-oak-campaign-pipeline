@@ -18,5 +18,9 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     openai_model: str = "gemini-2.5-flash"
 
+    # Minimum seconds between LLM calls. Free tiers have strict RPM limits;
+    # pacing proactively beats burning quota on 429 retries.
+    llm_min_interval_seconds: float = 0.0
+
 
 settings = Settings()
