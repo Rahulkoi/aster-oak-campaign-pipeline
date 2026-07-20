@@ -91,6 +91,11 @@ about arithmetic instead of doing it.
 stored un-enriched with the reason. Skipping enrichment beats hallucinated
 enrichment.
 
+**Provider switch**: the exercise provides an Anthropic *or* OpenAI key on the
+day, so `LLM_PROVIDER` selects native Anthropic tool calling or any
+OpenAI-compatible endpoint (OpenAI, Groq, Gemini) — same schema, same retry
+loop, same validation either way.
+
 **With more time**: feed validation errors back to the model on retry; batch or
 parallelize the per-row calls; a `/campaigns/insights` portfolio endpoint; a
 deterministic self-check (e.g. flag when the model's health score is high but ROAS
